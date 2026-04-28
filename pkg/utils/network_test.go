@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func Test_normalizeNetworkName(t *testing.T) {
+func Test_NormalizeNetworkName(t *testing.T) {
 	tests := []struct {
 		name        string
 		networkType string
@@ -89,7 +89,7 @@ func Test_normalizeNetworkName(t *testing.T) {
 	}
 }
 
-func TestValidateCIDRFilter_Comprehensive(t *testing.T) {
+func Test_ValidateCIDRFilter_Comprehensive(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string

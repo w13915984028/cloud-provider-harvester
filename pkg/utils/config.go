@@ -20,7 +20,7 @@ func GetCurrentConfigString(cfg *config.Config) string {
 		FlagCloudProviderControllers, cfg.CloudProviderControllers,
 		FlagManagementNetwork, cfg.ManagementNetwork,
 		FlagNodeIPCIDR, cfg.NodeIPCIDR,
-		FlagAllowSpecifyLoadbalancerNetwork, cfg.AllowSpecifyLoadBalancerNetwork,
+		FlagLoadbalancerNetwork, cfg.LoadbalancerNetwork,
 		FlagDisableVmiController, cfg.DisableVMIController,
 		FlagShowFullHelpOnError, cfg.ShowFullHelpOnError)
 }
@@ -120,7 +120,7 @@ func SyncAndValidateHarvesterConfig(cmd *cobra.Command, cfg *config.Config) erro
 	if cfg.DisableVMIController, err = getBool(FlagDisableVmiController); err != nil {
 		return err
 	}
-	if cfg.AllowSpecifyLoadBalancerNetwork, err = getBool(FlagAllowSpecifyLoadbalancerNetwork); err != nil {
+	if cfg.LoadbalancerNetwork, err = getStr(FlagLoadbalancerNetwork); err != nil {
 		return err
 	}
 	if cfg.ShowFullHelpOnError, err = getBool(FlagShowFullHelpOnError); err != nil {
@@ -141,7 +141,7 @@ func SyncAndValidateHarvesterConfig(cmd *cobra.Command, cfg *config.Config) erro
 	}
 
 	// 4. Strict Validation: Management Network
-	// If the user provided a value, it MUST be valid. We no longer drop and continue.
+	// If the user provided a value, it MUST be valid.
 	if cfg.ManagementNetwork != "" {
 		normalized, err := NormalizeNetworkName(NetworkTypeManagement, cfg.ManagementNetwork)
 		if err != nil {
@@ -159,17 +159,30 @@ func SyncAndValidateHarvesterConfig(cmd *cobra.Command, cfg *config.Config) erro
 	}
 
 	// 6. Strict Validation: Node Exclude IP Ranges
-	// We loop through the slice and ensure every entry is either a valid IP or a valid CIDR
+	// Loop through the slice and ensure every entry is either a valid IP or a valid CIDR
 	if len(cfg.NodeExcludeIPRanges) > 0 {
+		var cleanRanges []string
 		for _, entry := range cfg.NodeExcludeIPRanges {
-			entry = strings.TrimSpace(entry)
-			if entry == "" {
+			trimmed := strings.TrimSpace(entry)
+			if trimmed == "" {
 				continue
 			}
-			if err := ValidateIPOrCIDR(entry); err != nil {
-				return fmt.Errorf("invalid entry in --%s (%q): %w", FlagNodeExcludeIPRanges, entry, err)
+			if err := ValidateIPOrCIDR(trimmed); err != nil {
+				return fmt.Errorf("invalid entry in --%s (%q): %w", FlagNodeExcludeIPRanges, trimmed, err)
 			}
+			cleanRanges = append(cleanRanges, trimmed)
 		}
+		cfg.NodeExcludeIPRanges = cleanRanges
+	}
+
+	// 7. Strict Validation: Loadbalancer Network
+	// If the user provided a value, it MUST be valid.
+	if cfg.LoadbalancerNetwork != "" {
+		normalized, err := NormalizeNetworkName(NetworkTypeLB, cfg.LoadbalancerNetwork)
+		if err != nil {
+			return fmt.Errorf("invalid configuration for --%s: %w", FlagLoadbalancerNetwork, err)
+		}
+		cfg.LoadbalancerNetwork = normalized
 	}
 
 	logrus.Infof("%s effective configurations: %s", HarvesterCloudProvider, GetCurrentConfigString(cfg))
@@ -239,14 +252,4 @@ func HandleStartupError(cfg *config.Config, err error) {
 
 	// Always exit with a non-zero code to trigger a Pod restart/error state
 	os.Exit(1)
-}
-
-func MatchManagementNetwork(network string) bool {
-	cfg := config.GetConfig()
-	// if not configured, then always true
-	if cfg == nil || cfg.ManagementNetwork == "" {
-		return true
-	}
-
-	return network == cfg.ManagementNetwork
 }

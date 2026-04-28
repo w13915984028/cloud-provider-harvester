@@ -241,30 +241,27 @@ func patchLB(lb *lbv1.LoadBalancer) {
 	// 'AllowSpecifyLoadBalancerNetwork' is true, this value takes precedence.
 	// Note: If the user provides a non-existent network, LB provisioning may fail;
 	// this is intentional to avoid placing traffic on the wrong network silently.
-	if cfg.GetConfig().AllowSpecifyLoadBalancerNetwork {
-		val, exists := lb.Annotations[utils.AnnotationKeyGuestClusterNetworkNameOnLB]
-		if exists {
-			target, err := utils.NormalizeNetworkName(utils.NetworkTypeLB, val)
-			if err != nil {
-				logrus.Warnf("LoadBalancer %s/%s: %v, the user input is stripped.", lb.Namespace, lb.Name, err)
-				delete(lb.Annotations, utils.AnnotationKeyGuestClusterNetworkNameOnLB)
-			} else {
-				lb.Annotations[utils.AnnotationKeyGuestClusterNetworkNameOnLB] = target
-			}
+	if lbnetwork, ok := cfg.GetConfig().GetLoadbalancerNetwork(); ok {
+		target, err := utils.NormalizeNetworkName(utils.NetworkTypeLB, lbnetwork)
+		if err != nil {
+			logrus.Warnf("LoadBalancer %s/%s: loadbalancer-network config error %v, dropping annotation.", lb.Namespace, lb.Name, err)
+			delete(lb.Annotations, utils.AnnotationKeyGuestClusterNetworkNameOnLB)
+		} else {
+			lb.Annotations[utils.AnnotationKeyGuestClusterNetworkNameOnLB] = target
 		}
 	} else {
-		// If the master switch is off, strictly remove any user-provided network annotations.
+		// If configuration is off, strictly remove any user-provided network annotations.
 		delete(lb.Annotations, utils.AnnotationKeyGuestClusterNetworkNameOnLB)
 	}
 
 	// PRIORITY 2 (Medium): Global Management Network
 	// This acts as the authoritative default provided by the cloud-provider config.
 	// It is used if the user hasn't specified a valid override.
-	if cfg.GetConfig().ManagementNetwork != "" {
+	if mgmt, ok := cfg.GetConfig().GetManagementNetwork(); ok {
 		// Re-verifying the global config here ensures the annotation is always formatted correctly.
-		target, err := utils.NormalizeNetworkName(utils.NetworkTypeManagement, cfg.GetConfig().ManagementNetwork)
+		target, err := utils.NormalizeNetworkName(utils.NetworkTypeManagement, mgmt)
 		if err != nil {
-			logrus.Warnf("LoadBalancer %s/%s: global config %v, dropping annotation.", lb.Namespace, lb.Name, err)
+			logrus.Warnf("LoadBalancer %s/%s: management-network config error %v, dropping annotation.", lb.Namespace, lb.Name, err)
 			delete(lb.Annotations, utils.AnnotationKeyGuestClusterManagementNetworkOnLB)
 		} else {
 			lb.Annotations[utils.AnnotationKeyGuestClusterManagementNetworkOnLB] = target

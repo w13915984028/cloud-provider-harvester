@@ -46,8 +46,13 @@ func main() {
 			"When used with --management-network, it further refines which IPs on that specific interface are selected. "+
 			"Used to avoid non-deterministic guessing in multi-NIC/multi-IP setups.")
 
-	harv.BoolVar(&cfg.GetConfig().AllowSpecifyLoadBalancerNetwork, utils.FlagAllowSpecifyLoadbalancerNetwork, false,
-		"Allow loadbalancer to use user input annotation to specify the target network, otherwise the target network is always refetched. (default false)")
+	harv.StringVar(&cfg.GetConfig().LoadbalancerNetwork, utils.FlagLoadbalancerNetwork, "",
+		"(Experimental) Define the Harvester network name for LoadBalancer services (e.g., 'poc/cluster-network-2-vlan300'). "+
+			"When set, all LoadBalancer IPs will be allocated from this specific network. Successful routing requires "+
+			"alignment with kube-vip configuration and potential guest OS kernel tuning (e.g., rp_filter).")
+
+	harv.StringSliceVar(&cfg.GetConfig().NodeExcludeIPRanges, utils.FlagNodeExcludeIPRanges, []string{},
+		"Define a comma-separated list of IP ranges or single IPs to exclude (e.g., '10.0.0.0/8,192.168.0.5').")
 
 	harv.BoolVar(&cfg.GetConfig().ShowFullHelpOnError, utils.FlagShowFullHelpOnError, false,
 		"Show the full help menu and flag list will be displayed if a configuration error occurs at startup. (default false)")

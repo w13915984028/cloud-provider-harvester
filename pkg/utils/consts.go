@@ -31,7 +31,7 @@ const (
 	// new definitions
 	NetworkTypeManagement = "managementNetwork"
 
-	NetworkTypeLB = "lbNetwork"
+	NetworkTypeLB = "loadbalancerNetwork"
 
 	// when a guest cluster has multiple networks, it can explicitly say which one is the management network, instead of guessing or hardcoding
 	// value format: `default/vlan100`
@@ -57,7 +57,9 @@ const (
 
 	FlagManagementNetwork = "management-network"
 
-	FlagAllowSpecifyLoadbalancerNetwork = "allow-specify-loadbalancer-network"
+	FlagLoadbalancerNetwork = "loadbalancer-network"
+
+	//FlagAllowSpecifyLoadbalancerNetwork = "allow-specify-loadbalancer-network"
 
 	// FlagShowFullHelpOnError toggles the display of the full framework help menu on startup failure.
 	// Since users utilize '.Values.extraArgs' to tune cloud-provider framework features—such as

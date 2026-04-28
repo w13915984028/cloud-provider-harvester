@@ -28,12 +28,12 @@ func Test_SyncAndValidateHarvesterConfig(t *testing.T) {
 		{
 			name: "Full configuration",
 			inputFlags: map[string]interface{}{
-				FlagClusterName:                     "prod-cluster",
-				FlagManagementNetwork:               "harvester-public/vlan100",
-				FlagNodeIPCIDR:                      "192.168.0.0/24",
-				FlagDisableVmiController:            true,
-				FlagAllowSpecifyLoadbalancerNetwork: true,
-				FlagShowFullHelpOnError:             true,
+				FlagClusterName:          "prod-cluster",
+				FlagManagementNetwork:    "harvester-public/vlan100",
+				FlagNodeIPCIDR:           "192.168.0.0/24",
+				FlagDisableVmiController: true,
+				FlagLoadbalancerNetwork:  "",
+				FlagShowFullHelpOnError:  true,
 			},
 			sliceFlags: map[string][]string{
 				FlagCloudProviderControllers: {"node", "loadbalancer"},
@@ -41,14 +41,14 @@ func Test_SyncAndValidateHarvesterConfig(t *testing.T) {
 			},
 			wantErr: false,
 			expected: config.Config{
-				ClusterName:                     "prod-cluster",
-				CloudProviderControllers:        "node,loadbalancer",
-				ManagementNetwork:               "harvester-public/vlan100",
-				NodeIPCIDR:                      "192.168.0.0/24",
-				NodeExcludeIPRanges:             nil,
-				DisableVMIController:            true,
-				AllowSpecifyLoadBalancerNetwork: true,
-				ShowFullHelpOnError:             true,
+				ClusterName:              "prod-cluster",
+				CloudProviderControllers: "node,loadbalancer",
+				ManagementNetwork:        "harvester-public/vlan100",
+				NodeIPCIDR:               "192.168.0.0/24",
+				NodeExcludeIPRanges:      nil,
+				DisableVMIController:     true,
+				LoadbalancerNetwork:      "",
+				ShowFullHelpOnError:      true,
 			},
 		},
 		{
@@ -176,7 +176,7 @@ func Test_SyncAndValidateHarvesterConfig(t *testing.T) {
 			f.String(FlagManagementNetwork, "", "")
 			f.String(FlagNodeIPCIDR, "", "")
 			f.Bool(FlagDisableVmiController, false, "")
-			f.Bool(FlagAllowSpecifyLoadbalancerNetwork, false, "")
+			f.String(FlagLoadbalancerNetwork, "", "")
 			f.Bool(FlagShowFullHelpOnError, false, "")
 			f.StringSlice(FlagCloudProviderControllers, []string{}, "")
 			f.StringSlice(FlagNodeExcludeIPRanges, []string{}, "")

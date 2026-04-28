@@ -98,89 +98,62 @@ func Test_patchLB_Priority(t *testing.T) {
 	tests := []struct {
 		name                string
 		mgmtNetwork         string
-		allowSpecify        bool
+		lbNetwork           string
 		initialAnnotations  map[string]string
 		expectedAnnotations map[string]string
 	}{
 		{
-			name:         "User Override: User input normalized and mgmt network added",
-			mgmtNetwork:  "harvester-mgmt/vlan-100",
-			allowSpecify: true,
-			initialAnnotations: map[string]string{
-				utils.AnnotationKeyGuestClusterNetworkNameOnLB: "custom-vlan",
-			},
+			name:               "Both networks set: normalization and application",
+			mgmtNetwork:        "harvester-mgmt/vlan-100",
+			lbNetwork:          "custom-vlan",
+			initialAnnotations: map[string]string{},
 			expectedAnnotations: map[string]string{
-				// User input is normalized (bare name -> default/name)
 				utils.AnnotationKeyGuestClusterNetworkNameOnLB:       "default/custom-vlan",
 				utils.AnnotationKeyGuestClusterManagementNetworkOnLB: "harvester-mgmt/vlan-100",
 			},
 		},
 		{
-			name:         "User Override: Invalid user input stripped, mgmt network remains",
-			mgmtNetwork:  "harvester-mgmt/vlan-100",
-			allowSpecify: true,
+			name:        "LB network empty: existing LB annotation is stripped",
+			mgmtNetwork: "harvester-mgmt/vlan-100",
+			lbNetwork:   "",
 			initialAnnotations: map[string]string{
 				utils.AnnotationKeyGuestClusterNetworkNameOnLB: "too/many/slashes",
 			},
 			expectedAnnotations: map[string]string{
-				// Invalid user input is deleted, mgmt is still applied
 				utils.AnnotationKeyGuestClusterManagementNetworkOnLB: "harvester-mgmt/vlan-100",
 			},
 		},
 		{
-			name:               "Management: Global config added when no user input exists",
-			mgmtNetwork:        "harvester-mgmt/vlan-100",
-			allowSpecify:       true,
-			initialAnnotations: map[string]string{},
-			expectedAnnotations: map[string]string{
-				utils.AnnotationKeyGuestClusterManagementNetworkOnLB: "harvester-mgmt/vlan-100",
-			},
-		},
-		{
-			name:               "Management: Global config normalized if bare name",
+			name:               "Management network normalization: bare name to default namespace",
 			mgmtNetwork:        "mgmt-vlan",
-			allowSpecify:       true,
+			lbNetwork:          "",
 			initialAnnotations: map[string]string{},
 			expectedAnnotations: map[string]string{
 				utils.AnnotationKeyGuestClusterManagementNetworkOnLB: "default/mgmt-vlan",
 			},
 		},
 		{
-			name:         "Management: Invalid global config stripped from annotations",
-			mgmtNetwork:  "invalid/global/net",
-			allowSpecify: true,
+			name:        "Management network empty: existing mgmt annotation is stripped",
+			mgmtNetwork: "",
+			lbNetwork:   "",
+			initialAnnotations: map[string]string{
+				utils.AnnotationKeyGuestClusterManagementNetworkOnLB: "default/mgmt-vlan",
+			},
+			expectedAnnotations: map[string]string{},
+		},
+		{
+			name:        "Invalid global config: results in stripped annotations",
+			mgmtNetwork: "invalid/global/net/too/deep",
+			lbNetwork:   "",
 			initialAnnotations: map[string]string{
 				utils.AnnotationKeyGuestClusterManagementNetworkOnLB: "old-val",
 			},
 			expectedAnnotations: map[string]string{},
 		},
 		{
-			name:         "Permissions: User input stripped when allowSpecify is false",
-			mgmtNetwork:  "harvester-mgmt/vlan-100",
-			allowSpecify: false,
-			initialAnnotations: map[string]string{
-				utils.AnnotationKeyGuestClusterNetworkNameOnLB: "user-vlan",
-			},
-			expectedAnnotations: map[string]string{
-				utils.AnnotationKeyGuestClusterManagementNetworkOnLB: "harvester-mgmt/vlan-100",
-			},
-		},
-		{
-			name:         "Fallback: Both annotations removed if mgmt is empty and user input disabled",
-			mgmtNetwork:  "",
-			allowSpecify: false,
-			initialAnnotations: map[string]string{
-				utils.AnnotationKeyGuestClusterNetworkNameOnLB:       "user-vlan",
-				utils.AnnotationKeyGuestClusterManagementNetworkOnLB: "old-mgmt",
-			},
-			expectedAnnotations: map[string]string{
-				// Result is empty -> Harvester side will perform fallback discovery
-			},
-		},
-		{
-			name:         "Preservation: Non-related annotations are not touched",
-			mgmtNetwork:  "",
-			allowSpecify: false,
+			name:        "Preservation: unrelated annotations remain untouched",
+			mgmtNetwork: "",
+			lbNetwork:   "",
 			initialAnnotations: map[string]string{
 				"harvesterhci.io/other": "important-data",
 			},
@@ -189,9 +162,9 @@ func Test_patchLB_Priority(t *testing.T) {
 			},
 		},
 		{
-			name:         "Edge Case: Malformed parts (ns/) are stripped",
-			mgmtNetwork:  "",
-			allowSpecify: true,
+			name:        "Malformed input: validation failure leads to removal",
+			mgmtNetwork: "",
+			lbNetwork:   "",
 			initialAnnotations: map[string]string{
 				utils.AnnotationKeyGuestClusterNetworkNameOnLB: "namespace/",
 			},
@@ -199,17 +172,21 @@ func Test_patchLB_Priority(t *testing.T) {
 		},
 	}
 
-	originalConfig := *cfg.GetConfig()
-	restoreConfig := func() {
-		*cfg.GetConfig() = originalConfig
-	}
-	defer restoreConfig()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set global config state
-			cfg.GetConfig().ManagementNetwork = tt.mgmtNetwork
-			cfg.GetConfig().AllowSpecifyLoadBalancerNetwork = tt.allowSpecify
+			// Setup a clean config for every sub-test to avoid side-effects
+			currentCfg := cfg.GetConfig()
+			oldMgmt := currentCfg.ManagementNetwork
+			oldLB := currentCfg.LoadbalancerNetwork
+
+			currentCfg.ManagementNetwork = tt.mgmtNetwork
+			currentCfg.LoadbalancerNetwork = tt.lbNetwork
+
+			// Cleanup after each subtest
+			defer func() {
+				currentCfg.ManagementNetwork = oldMgmt
+				currentCfg.LoadbalancerNetwork = oldLB
+			}()
 
 			lb := &lbv1.LoadBalancer{
 				ObjectMeta: metav1.ObjectMeta{
@@ -221,8 +198,20 @@ func Test_patchLB_Priority(t *testing.T) {
 
 			patchLB(lb)
 
-			if diff := cmp.Diff(tt.expectedAnnotations, lb.Annotations); diff != "" {
-				t.Errorf("patchLB() mismatch (-want +got):\n%s", diff)
+			// Using cmp.Diff for high-quality error messages
+			// Ensure we compare against an empty map if expected is nil
+			if tt.expectedAnnotations == nil {
+				tt.expectedAnnotations = make(map[string]string)
+			}
+			// patchLB might leave map as nil if it clears everything,
+			// so we normalize for the comparison if needed.
+			actual := lb.Annotations
+			if actual == nil {
+				actual = make(map[string]string)
+			}
+
+			if diff := cmp.Diff(tt.expectedAnnotations, actual); diff != "" {
+				t.Errorf("patchLB() result mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

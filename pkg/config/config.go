@@ -18,12 +18,12 @@ type Config struct {
 	CloudProviderControllers string
 
 	// defined by Harvester, refer pkg/utils/consts.go for more information
-	ManagementNetwork               string
-	NodeIPCIDR                      string
-	NodeExcludeIPRanges             []string
-	AllowSpecifyLoadBalancerNetwork bool
-	DisableVMIController            bool
-	ShowFullHelpOnError             bool
+	ManagementNetwork    string
+	NodeIPCIDR           string
+	NodeExcludeIPRanges  []string
+	LoadbalancerNetwork  string
+	DisableVMIController bool
+	ShowFullHelpOnError  bool
 }
 
 var _config = &Config{}
@@ -32,6 +32,16 @@ func GetConfig() *Config {
 	return _config
 }
 
-func IsManagementNetworkConfigured() bool {
-	return _config.ManagementNetwork != ""
+func (c *Config) GetManagementNetwork() (string, bool) {
+	if c != nil && c.ManagementNetwork != "" {
+		return c.ManagementNetwork, true
+	}
+	return "", false
+}
+
+func (c *Config) GetLoadbalancerNetwork() (string, bool) {
+	if c != nil && c.LoadbalancerNetwork != "" {
+		return c.LoadbalancerNetwork, true
+	}
+	return "", false
 }

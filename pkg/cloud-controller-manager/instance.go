@@ -94,7 +94,7 @@ func (i *instanceManager) getVM(node *v1.Node) (*kubevirtv1.VirtualMachine, erro
 }
 
 func getManagementNetworks(vmi *kubevirtv1.VirtualMachineInstance) []string {
-	if config.IsManagementNetworkConfigured() {
+	if mgmt, ok := config.GetConfig().GetManagementNetwork(); ok {
 		// Build a list of network names (names of NICs) on the VM.
 		networkNames := make([]string, 0, 1)
 		for _, network := range vmi.Spec.Networks {
@@ -110,7 +110,7 @@ func getManagementNetworks(vmi *kubevirtv1.VirtualMachineInstance) []string {
 				continue
 			}
 			// if ManagementNetwork is configured, then strictly match this network
-			if utils.MatchManagementNetwork(network.Multus.NetworkName) {
+			if network.Multus.NetworkName == mgmt {
 				networkNames = append(networkNames, network.Name)
 				break
 			}
